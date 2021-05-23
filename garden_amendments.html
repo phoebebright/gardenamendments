@@ -1,0 +1,179 @@
+<html>
+<head>
+
+
+    <script
+            src="https://code.jquery.com/jquery-3.6.0.min.js"
+            integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4="
+            crossorigin="anonymous"></script>
+    <!--    <script type="text/javascript" src="./tablesorter/js/jquery.tablesorter.js"></script>-->
+    <!--    <script type="text/javascript" src="./tablesorter/js/jquery.tablesorter.widgets.js"></script>-->
+
+    <link rel="preconnect" href="https://fonts.gstatic.com">
+    <link href="https://fonts.googleapis.com/css2?family=Raleway&display=swap" rel="stylesheet">
+
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.1/dist/js/bootstrap.bundle.min.js" integrity="sha384-gtEjrD/SeCtmISkJkNUaaKMoLD0//ElJ19smozuHV6z3Iehds+3Ulb9Bn9Plx0x4" crossorigin="anonymous"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-+0n0xVW2eSR5OomGNYDnhzAbDsOXxcvSN1TPprVMTNDbiYZCxYbOOl7+AMvyTG2x" crossorigin="anonymous">
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.31.3/js/jquery.tablesorter.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.31.3/css/theme.bootstrap_4.min.css" rel="stylesheet">
+
+    <style>
+
+        body {
+            font-family: 'Raleway', sans-serif;
+        }
+        table {
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+
+
+<div class="container">
+    <h2>Garden Amendments Table</h2>
+    <hr />
+    <p>Appendix E from the book The Regenerative Growser Guide to Garden Amendments by Nigel Palmer - see</p>
+    <p>To find the amendment rich in a particular mineral, just click on the column header.</p>
+    <div id="grid"></div>
+    <p class="fs-6">Values in the book marked "<0.02" and "<0.01" are shown as 0.1</p>
+</div>
+
+<script>
+    $(document).ready(function() {
+
+
+
+        d3.csv("./plantjuice.csv", function(d, i){
+
+            for (var key in d) {
+                if (key != "Plant Type") {
+                    d[key] = parseFloat(d[key]);
+                }
+            }
+            return d;
+
+        }).then((raw) => {
+
+
+            // render the table(s)
+            tabulate(raw, raw.columns); // 2 column table
+
+        });
+
+    });
+
+    function tabulate(data, columns) {
+
+        // get extent of each column to give consistent colouring
+        const extents = columns.slice(1).map(function(c) {
+            const a = data.map(function (d) {
+                return (d[c]);
+            });
+            return d3.extent(a );
+
+        });
+
+
+        var table = d3.select('#grid').append('table').attr("class", "table table-hover");
+        var thead = table.append('thead');
+        var	tbody = table.append('tbody');
+
+        // append the header row
+        thead.append('tr')
+            .selectAll('th')
+            .data(columns).enter()
+            .append('th')
+            .on("mouseover", function mouseover(p) {
+                $("#grid table").tablesorter()   // where mytable is the id of your table
+            })
+            .text(function (column) { return column; });
+
+        // create a row for each object in the data
+        var rows = tbody.selectAll('tr')
+            .data(data)
+            .enter()
+            .append('tr');
+
+        // create a cell in each row for each column
+        var cells = rows.selectAll('td')
+            .data(function (row) {
+                return columns.map(function (column, i) {
+                    return {column: column, value: row[column], color: getcolour(row[column], i, extents)};
+                });
+            })
+            .enter()
+            .append('td')
+            .style("background-color", function(d) {
+                return d.color;
+            })
+            .text(function (d) { return d.value; });
+
+        return table;
+    }
+
+    function getcolour(curval, i, extents) {
+        /*
+         http://www.jnathanson.com/blog/client/jquery/heatcolor/index.cfm
+         set colour based on this values position between min and max
+         */
+
+        if (i < 1) {
+            return "#FFF";
+        }
+
+        // no extent for column 0
+        [mx, mn] = extents[i-1];
+
+        // handle edge case of min = max
+        if (mn == mx) {
+            mn = mn - 1;
+        }
+
+        // value between 1 and 0
+        var position = (curval - mn) / (mx - mn);
+
+        // this adds 0.5 at the top to get red, and limits the bottom at x= 1.7 to get purple
+        var shft = 0.5*position + 1.7*(1-position);
+
+
+        // scale will be multiplied by the cos(x) + 1
+        // (value from 0 to 2) so it comes up to a max of 255
+        var scale = 128;
+
+        // period is 2Pi
+        var period = 2*Math.PI;
+
+        // x is place along x axis of cosine wave
+        var x = shft + position * period;
+
+
+
+        var r = process( Math.floor((Math.cos(x) + 1) * scale) );
+        var g = process( Math.floor((Math.cos(x+Math.PI/2) + 1) * scale) );
+        var b = process( Math.floor((Math.cos(x+Math.PI) + 1) * scale) );
+
+        return '#' + r + g + b;
+
+    }
+
+    function process( num ) {
+
+        // adjust lightness
+        var n = Math.floor( num + 0.75 * (256 - num));
+
+        // turn to hex
+        var s = n.toString(16);
+
+        // if no first char, prepend 0
+        s = s.length == 1 ? '0' + s : s;
+
+        return s;
+    }
+
+</script>
+</body>
+</html>
